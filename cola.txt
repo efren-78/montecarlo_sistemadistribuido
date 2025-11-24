@@ -1,0 +1,7 @@
+# Direccion
+
+cd "D:\RabbitMQ Server\rabbitmq_server-4.2.0\sbin"
+
+### Colas que tiene RabbitMQ 
+
+./rabbitmqctl.bat list_queues
