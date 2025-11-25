@@ -1,6 +1,3 @@
-grpcio
-grpcio-tools
 pika
 matplotlib
 numpy
-protobuf
