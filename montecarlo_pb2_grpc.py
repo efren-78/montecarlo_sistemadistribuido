@@ -25,8 +25,11 @@ if _version_not_supported:
     )
 
 
-class MonteCarloServiceStub(object):
-    """===== Servicio =====
+class TaskServiceStub(object):
+    """===================================================
+    Servicio gRPC
+    ===================================================
+
     """
 
     def __init__(self, channel):
@@ -35,45 +38,69 @@ class MonteCarloServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Handshake = channel.unary_unary(
-                '/montecarlo.MonteCarloService/Handshake',
-                request_serializer=montecarlo__pb2.HandshakeRequest.SerializeToString,
-                response_deserializer=montecarlo__pb2.HandshakeReply.FromString,
+        self.ObtenerTarea = channel.unary_unary(
+                '/montecarlo.TaskService/ObtenerTarea',
+                request_serializer=montecarlo__pb2.ObtenerTareaRequest.SerializeToString,
+                response_deserializer=montecarlo__pb2.ObtenerTareaResponse.FromString,
+                _registered_method=True)
+        self.EnviarResultado = channel.unary_unary(
+                '/montecarlo.TaskService/EnviarResultado',
+                request_serializer=montecarlo__pb2.EnviarResultadoRequest.SerializeToString,
+                response_deserializer=montecarlo__pb2.EnviarResultadoResponse.FromString,
                 _registered_method=True)
 
 
-class MonteCarloServiceServicer(object):
-    """===== Servicio =====
+class TaskServiceServicer(object):
+    """===================================================
+    Servicio gRPC
+    ===================================================
+
     """
 
-    def Handshake(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def ObtenerTarea(self, request, context):
+        """RPC para que el cliente solicite una nueva tarea.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EnviarResultado(self, request, context):
+        """RPC para que el cliente envíe el resultado de una tarea.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_MonteCarloServiceServicer_to_server(servicer, server):
+def add_TaskServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Handshake': grpc.unary_unary_rpc_method_handler(
-                    servicer.Handshake,
-                    request_deserializer=montecarlo__pb2.HandshakeRequest.FromString,
-                    response_serializer=montecarlo__pb2.HandshakeReply.SerializeToString,
+            'ObtenerTarea': grpc.unary_unary_rpc_method_handler(
+                    servicer.ObtenerTarea,
+                    request_deserializer=montecarlo__pb2.ObtenerTareaRequest.FromString,
+                    response_serializer=montecarlo__pb2.ObtenerTareaResponse.SerializeToString,
+            ),
+            'EnviarResultado': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnviarResultado,
+                    request_deserializer=montecarlo__pb2.EnviarResultadoRequest.FromString,
+                    response_serializer=montecarlo__pb2.EnviarResultadoResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'montecarlo.MonteCarloService', rpc_method_handlers)
+            'montecarlo.TaskService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('montecarlo.MonteCarloService', rpc_method_handlers)
+    server.add_registered_method_handlers('montecarlo.TaskService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class MonteCarloService(object):
-    """===== Servicio =====
+class TaskService(object):
+    """===================================================
+    Servicio gRPC
+    ===================================================
+
     """
 
     @staticmethod
-    def Handshake(request,
+    def ObtenerTarea(request,
             target,
             options=(),
             channel_credentials=None,
@@ -86,9 +113,36 @@ class MonteCarloService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/montecarlo.MonteCarloService/Handshake',
-            montecarlo__pb2.HandshakeRequest.SerializeToString,
-            montecarlo__pb2.HandshakeReply.FromString,
+            '/montecarlo.TaskService/ObtenerTarea',
+            montecarlo__pb2.ObtenerTareaRequest.SerializeToString,
+            montecarlo__pb2.ObtenerTareaResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def EnviarResultado(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/montecarlo.TaskService/EnviarResultado',
+            montecarlo__pb2.EnviarResultadoRequest.SerializeToString,
+            montecarlo__pb2.EnviarResultadoResponse.FromString,
             options,
             channel_credentials,
             insecure,

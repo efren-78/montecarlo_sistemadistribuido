@@ -1,54 +1,76 @@
 import pika
-import grpc
 import json
+import uuid
+
+RABBIT_HOST = 'localhost'
+COLA_TAREAS = 'cola_escenarios'
+COLA_MODELO = 'cola_modelo'
+
+# ---------------------------------------------------------
+# ESTE ES EL MODELO (LA FUNCIÓN) QUE ENVIAREMOS POR LA RED
+# ---------------------------------------------------------
+codigo_modelo_montecarlo = """
 import random
-import time
-
-import montecarlo_pb2
-import montecarlo_pb2_grpc
-
-COLA_ESCENARIOS = "cola_escenarios"
-
-def generar_puntos(n):
-    puntos = []
-    for _ in range(n):
+def modelo(iteraciones):
+    aciertos = 0
+    for _ in range(iteraciones):
         x = random.random()
         y = random.random()
-        puntos.append({"x": x, "y": y})
-    return puntos
+        if x*x + y*y <= 1.0:
+            aciertos += 1
+    return aciertos
+"""
 
 def main():
-    # --- gRPC Handshake ---
-    channel = grpc.insecure_channel("localhost:50051")
-    stub = montecarlo_pb2_grpc.MonteCarloServiceStub(channel)
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBIT_HOST))
+    channel = connection.channel()
 
-    respuesta = stub.Handshake(
-        montecarlo_pb2.HandshakeRequest(worker_id="worker_1")
+    # 1. Declarar colas
+    channel.queue_declare(queue=COLA_TAREAS, durable=True)
+    channel.queue_declare(queue=COLA_MODELO, durable=True)
+
+    # 2. PUBLICAR EL MODELO (LA FUNCIÓN)
+    # Requisito de imagen: "Cola específica", "time-out delivery" (TTL)
+    # Expiración: 60000ms (1 minuto) como ejemplo de time-out
+    print(f" [x] Publicando código del modelo en '{COLA_MODELO}'...")
+    
+    channel.basic_publish(
+        exchange='',
+        routing_key=COLA_MODELO,
+        body=codigo_modelo_montecarlo,
+        properties=pika.BasicProperties(
+            delivery_mode=2, 
+            expiration='60000'  # El mensaje expira si nadie lo lee en 60s
+        )
     )
 
-    lote = respuesta.puntos_por_lote
-    print(f"Productor: Lote recibido = {lote} puntos")
+    # 3. PUBLICAR LOS ESCENARIOS (Lectura de archivo)
+    print(f" [x] Leyendo 'escenarios.txt' y publicando tareas...")
+    try:
+        with open('escenarios.txt', 'r') as f:
+            lineas = f.readlines()
+            
+        for linea in lineas:
+            iteraciones = int(linea.strip())
+            if iteraciones <= 0: continue
 
-    # --- Conexión RabbitMQ ---
-    mq_conn = pika.BlockingConnection(pika.ConnectionParameters("localhost"))
-    mq_ch = mq_conn.channel()
-    mq_ch.queue_declare(queue=COLA_ESCENARIOS, durable=True)
+            mensaje = {
+                'id_escenario': str(uuid.uuid4())[:8],
+                'iteraciones': iteraciones
+            }
+            
+            channel.basic_publish(
+                exchange='',
+                routing_key=COLA_TAREAS,
+                body=json.dumps(mensaje),
+                properties=pika.BasicProperties(delivery_mode=2)
+            )
+            print(f"   -> Escenario enviado: {iteraciones} iteraciones")
 
-    print("Productor listo. Enviando puntos...")
+    except FileNotFoundError:
+        print("Error: Crea un archivo 'escenarios.txt' primero.")
+    
+    connection.close()
 
-    while True:
-        puntos = generar_puntos(lote)
-        mensaje = json.dumps(puntos)
-
-        mq_ch.basic_publish(
-            exchange="",
-            routing_key=COLA_ESCENARIOS,
-            body=mensaje,
-            properties=pika.BasicProperties(delivery_mode=2)
-        )
-
-        print(f"Productor: Enviado lote de {lote} puntos")
-        time.sleep(0.2)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

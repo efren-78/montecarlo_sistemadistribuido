@@ -24,17 +24,21 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10montecarlo.proto\x12\nmontecarlo\"%\n\x10HandshakeRequest\x12\x11\n\tworker_id\x18\x01 \x01(\t\"L\n\x0eHandshakeReply\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x02 \x01(\x08\x12\x17\n\x0fpuntos_por_lote\x18\x03 \x01(\x05\x32Z\n\x11MonteCarloService\x12\x45\n\tHandshake\x12\x1c.montecarlo.HandshakeRequest\x1a\x1a.montecarlo.HandshakeReplyb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10montecarlo.proto\x12\nmontecarlo\")\n\x13ObtenerTareaRequest\x12\x12\n\ncliente_id\x18\x01 \x01(\t\"B\n\x14ObtenerTareaResponse\x12\x19\n\x11sistema_terminado\x18\x01 \x01(\x08\x12\x0f\n\x07numeros\x18\x02 \x03(\x05\"I\n\x16\x45nviarResultadoRequest\x12\x12\n\ncliente_id\x18\x01 \x01(\t\x12\x1b\n\x13resultado_calculado\x18\x02 \x01(\x03\"9\n\x17\x45nviarResultadoResponse\x12\r\n\x05\x65xito\x18\x01 \x01(\x08\x12\x0f\n\x07mensaje\x18\x02 \x01(\t2\xbc\x01\n\x0bTaskService\x12Q\n\x0cObtenerTarea\x12\x1f.montecarlo.ObtenerTareaRequest\x1a .montecarlo.ObtenerTareaResponse\x12Z\n\x0f\x45nviarResultado\x12\".montecarlo.EnviarResultadoRequest\x1a#.montecarlo.EnviarResultadoResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'montecarlo_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_HANDSHAKEREQUEST']._serialized_start=32
-  _globals['_HANDSHAKEREQUEST']._serialized_end=69
-  _globals['_HANDSHAKEREPLY']._serialized_start=71
-  _globals['_HANDSHAKEREPLY']._serialized_end=147
-  _globals['_MONTECARLOSERVICE']._serialized_start=149
-  _globals['_MONTECARLOSERVICE']._serialized_end=239
+  _globals['_OBTENERTAREAREQUEST']._serialized_start=32
+  _globals['_OBTENERTAREAREQUEST']._serialized_end=73
+  _globals['_OBTENERTAREARESPONSE']._serialized_start=75
+  _globals['_OBTENERTAREARESPONSE']._serialized_end=141
+  _globals['_ENVIARRESULTADOREQUEST']._serialized_start=143
+  _globals['_ENVIARRESULTADOREQUEST']._serialized_end=216
+  _globals['_ENVIARRESULTADORESPONSE']._serialized_start=218
+  _globals['_ENVIARRESULTADORESPONSE']._serialized_end=275
+  _globals['_TASKSERVICE']._serialized_start=278
+  _globals['_TASKSERVICE']._serialized_end=466
 # @@protoc_insertion_point(module_scope)

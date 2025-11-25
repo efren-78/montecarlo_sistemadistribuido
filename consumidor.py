@@ -1,165 +1,130 @@
-import time
-import json
-import random
 import pika
-import grpc
-from concurrent import futures
-import montecarlo_pb2
-import montecarlo_pb2_grpc
+import json
+import sys
+import os
+import uuid
 
-class MonteCarloService(montecarlo_pb2_grpc.MonteCarloServiceServicer):
-    def Handshake(self, request, context):
-        print(f"[gRPC] Handshake recibido de {request.worker_id}")
+RABBIT_HOST = 'localhost'
+COLA_TAREAS = 'cola_escenarios'
+COLA_MODELO = 'cola_modelo'
+COLA_RESULTADOS = 'cola_resultados'
 
-        return montecarlo_pb2.HandshakeReply(
-            message="Handshake OK",
-            accepted=True,
-            puntos_por_lote=5000   # <--- valor recomendado
-        )
+# Variable global donde guardaremos la función recibida dinámicamente
+funcion_modelo = None
 
-
-class Consumidor:
-    """
-    Clase Consumidor:
-    1. Lee parámetros del modelo de la 'cola_parametros_modelo'.
-    2. Consume escenarios de la 'cola_escenarios'.
-    3. Ejecuta la estimación de Pi.
-    4. Publica el resultado en la 'cola_resultados'.
-    """
-
-    RABBITMQ_HOST = 'localhost'
-    COLA_ESCENARIOS = 'cola_escenarios'
-    COLA_MODELO = 'cola_parametros_modelo'
-    COLA_RESULTADOS = 'cola_resultados'
+def callback_tareas(ch, method, properties, body):
+    global funcion_modelo
     
-    def __init__(self):
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.RABBITMQ_HOST))
-        self.channel = self.connection.channel()
-        print("✅ Consumidor inicializado.")
-        
-        # 1. Leer Parámetros del Modelo (Asignación a variable interna)
-        self.parametros_modelo = self._obtener_parametros_modelo()
+    # 1. Verificación de seguridad: ¿Tenemos el modelo cargado?
+    if not funcion_modelo:
+        print(" [!] Recibí tarea pero no tengo modelo. Reencolando...")
+        # Nack devuelve el mensaje a la cola para que otro worker (o yo mismo luego) lo tome
+        ch.basic_nack(delivery_tag=method.delivery_tag)
+        return
 
-        # Asegurar las colas
-        self.channel.queue_declare(queue=self.COLA_ESCENARIOS, durable=True)
-        self.channel.queue_declare(queue=self.COLA_RESULTADOS, durable=True)
-
-    # --- Método de Estimación de Pi (Montecarlo) ---
-    def _estimar_pi_montecarlo(self, points):
-        """Función de estimación de Pi basada en Montecarlo."""
-        points_in_circle = 0
+    try:
+        # 2. Intentar decodificar el mensaje
+        tarea = json.loads(body)
         
-        # Bucle de simulación: se generan 'points' puntos aleatorios (x, y) entre [0, 1)
-        for _ in range(points):
-            x = random.random()
-            y = random.random()
+        # --- BLOQUE DEFENSIVO (OPCIÓN B) ---
+        # Verificamos que sea un diccionario y tenga la clave 'iteraciones'
+        if not isinstance(tarea, dict) or 'iteraciones' not in tarea:
+            print(f" [!] ALERTA: Mensaje 'basura' ignorado (formato incorrecto): {body}")
             
-            # Condición para verificar si el punto cae dentro del círculo de radio 1: x^2 + y^2 < 1
-            if x*x + y*y <= 1:
-                points_in_circle += 1
-                
-        # Fórmula: π ≈ 4 * (puntos_dentro_círculo / puntos_totales)
-        factor = self.parametros_modelo.get('factor_multiplicador', 4)
-        pi_estimate = factor * (points_in_circle / points)
-        return pi_estimate
-
-    # --- Manejo de Colas ---
-    
-    def _obtener_parametros_modelo(self):
-        """Lee una sola vez de la cola de parámetros de modelo."""
-        method_frame, properties, body = self.channel.basic_get(queue=self.COLA_MODELO, auto_ack=True)
-        
-        if body:
-            params = json.loads(body.decode())
-            print(f"📥 [CONSUMIDOR] Parámetros del modelo leídos: {params.get('version')}")
-            return params
-        else:
-            print("⚠️ [CONSUMIDOR] Cola de modelo vacía. Usando parámetros por defecto.")
-            return {"version": "default_v0.0", "description": "Default Monte Carlo", "factor_multiplicador": 4}
-
-    def _publicar_resultados(self, scenario_id, pi_estimate, points, duration):
-        """Publica el resultado en la 'cola_resultados'."""
-        result_data = {
-            'scenario_id': scenario_id,
-            'puntos_simulados': points,
-            'pi_estimado': pi_estimate,
-            'tiempo_segundos': duration,
-            'modelo_usado': self.parametros_modelo['version']
-        }
-        message = json.dumps(result_data)
-        
-        self.channel.basic_publish(
-            exchange='',
-            routing_key=self.COLA_RESULTADOS,
-            body=message,
-            properties=pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent)
-        )
-        print(f"⬆️  [CONSUMIDOR] Resultado publicado para ID={scenario_id}. $\pi \\approx {pi_estimate:.6f}$")
-
-    def iniciar_consumo(self):
-        """Configura y comienza a consumir mensajes de la 'cola_escenarios'."""
-        
-        def callback_escenario(ch, method, properties, body):
-            """Función callback ejecutada al recibir un nuevo escenario."""
-            scenario = json.loads(body.decode())
-            scenario_id = scenario['scenario_id']
-            points = scenario['points']
-            
-            print(f"\n⚙️  [CONSUMIDOR] Procesando escenario ID={scenario_id} con {points:,} puntos...")
-            
-            # Ejecución del modelo
-            start_time = time.time()
-            pi_estimate = self._estimar_pi_montecarlo(points)
-            end_time = time.time()
-            duration = end_time - start_time
-            
-            # Publicar resultados
-            self._publicar_resultados(scenario_id, pi_estimate, points, duration)
-            
-            # Reconocimiento (ACK) para remover el mensaje de la cola
+            # ¡IMPORTANTE! Hacemos ACK para eliminar este mensaje corrupto de RabbitMQ
+            # Si no hacemos esto, el mensaje se queda ahí y volverá a romper el programa.
             ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
+        # -----------------------------------
 
-        # Configurar el Consumidor
-        self.channel.basic_qos(prefetch_count=1) # Procesa un mensaje a la vez
-        self.channel.basic_consume(queue=self.COLA_ESCENARIOS, on_message_callback=callback_escenario)
+        # 3. Si llegamos aquí, el mensaje es válido. Procesamos.
+        iteraciones = tarea['iteraciones']
+        # Usamos .get por seguridad, si no trae ID, ponemos 'sin_id'
+        id_escenario = tarea.get('id_escenario', 'sin_id') 
+        
+        print(f" [>] Procesando escenario {id_escenario} ({iteraciones} it)...")
 
-        print(f"\n✨ Esperando mensajes en '{self.COLA_ESCENARIOS}'. Para salir, presione CTRL+C.")
-        try:
-            self.channel.start_consuming()
-        except KeyboardInterrupt:
-            print("\nProceso de Consumidor detenido.")
-            self.cerrar_conexion()
+        # 4. EJECUTAR EL MODELO DINÁMICO
+        aciertos = funcion_modelo(iteraciones)
 
-
-    def cerrar_conexion(self):
-        self.connection.close()
-        print("❌ Conexión del Consumidor cerrada.")
-
-
-
-if __name__ == "__main__":
-    def iniciar_grpc_server():
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        montecarlo_pb2_grpc.add_MonteCarloServiceServicer_to_server(
-            MonteCarloService(), server
+        # 5. Publicar Resultado
+        resultado = {
+            'id_escenario': id_escenario,
+            'iteraciones_totales': iteraciones,
+            'aciertos': aciertos,
+            # Generamos un ID único si no existe, o usamos uno fijo por terminal
+            'worker_id': f"Worker-{str(uuid.getnode())[-4:]}" 
+        }
+        
+        # Declaramos la cola por si acaso no existiera
+        ch.queue_declare(queue=COLA_RESULTADOS, durable=True)
+        
+        ch.basic_publish(
+            exchange='',
+            routing_key=COLA_RESULTADOS,
+            body=json.dumps(resultado),
+            properties=pika.BasicProperties(delivery_mode=2)
         )
-        server.add_insecure_port('[::]:50051')
-        server.start()
-        print("🚀 gRPC Server iniciado en puerto 50051")
-        return server
+        
+        # 6. Confirmar tarea procesada exitosamente
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    except Exception as e:
+        print(f" [X] Error CRÍTICO procesando mensaje: {e}")
+        # En caso de error de código (ej. división por cero), también sacamos el mensaje
+        # para que no genere un bucle infinito de errores.
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+
+
+def obtener_modelo(channel):
+    """
+    Requisito de imagen: "leer el modelo de la cola de modelo (una vez)"
+    """
+    print(" [*] Buscando modelo en la cola...")
     
-    # Iniciar el servidor gRPC en un hilo separado
-    grpc_server = iniciar_grpc_server()
-
-    print("--- 👂 INICIANDO CONSUMIDOR (Escuchando y Procesando) ---")
-
-    # Crea la instancia del Consumidor
-    consumidor = Consumidor()
-
-    # Inicia el consumo (es BLOQUEANTE)
-    consumidor.iniciar_consumo()
-
-    grpc_server.wait_for_termination()
+    # Usamos basic_get para leer UNA sola vez, no basic_consume loop
+    method_frame, header_frame, body = channel.basic_get(queue=COLA_MODELO)
     
-    # Nota: El código siguiente solo se ejecutará si se detiene el consumo (ej. Ctrl+C)
-    print("Consumidor detenido.")
+    if method_frame:
+        print(" [x] Modelo recibido. Cargando lógica en memoria...")
+        codigo_python = body.decode('utf-8')
+        
+        # MAGIA DINÁMICA: Ejecutamos el string como código Python
+        # Esto crea la función 'def modelo(iteraciones):' en nuestro entorno local
+        exec(codigo_python, globals())
+        
+        # Asignamos la función creada a nuestra variable
+        global funcion_modelo
+        funcion_modelo = modelo 
+        
+        # Confirmamos que recibimos el modelo (ACK)
+        channel.basic_ack(method_frame.delivery_tag)
+        return True
+    else:
+        print(" [!] La cola de modelos está vacía. Esperando...")
+        return False
+
+def main():
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBIT_HOST))
+    channel = connection.channel()
+
+    channel.queue_declare(queue=COLA_TAREAS, durable=True)
+    channel.queue_declare(queue=COLA_MODELO, durable=True)
+    
+    # 1. BLOQUEAR HASTA OBTENER EL MODELO (Paso 1 de la Imagen)
+    modelo_cargado = False
+    while not modelo_cargado:
+        modelo_cargado = obtener_modelo(channel)
+        if not modelo_cargado:
+            import time
+            time.sleep(2) # Reintentar cada 2 segundos
+
+    # 2. UNA VEZ CON MODELO, PROCESAR ESCENARIOS
+    channel.basic_qos(prefetch_count=1)
+    print(' [*] Modelo cargado. Esperando escenarios...')
+    
+    channel.basic_consume(queue=COLA_TAREAS, on_message_callback=callback_tareas)
+    channel.start_consuming()
+
+if __name__ == '__main__':
+    main()

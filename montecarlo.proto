@@ -1,19 +1,48 @@
+// archivo: montecarlo.proto
 syntax = "proto3";
 
 package montecarlo;
 
-// ===== Handshake inicial del productor =====
-message HandshakeRequest {
-    string worker_id = 1;
+// ===================================================
+// Mensajes de Tarea (Servidor -> Cliente)
+// ===================================================
+
+// Mensaje de solicitud de tarea
+message ObtenerTareaRequest {
+  string cliente_id = 1; // El cliente se identifica al pedir una tarea.
 }
 
-message HandshakeReply {
-    string message = 1;
-    bool accepted = 2;
-    int32 puntos_por_lote = 3;  // ← NECESARIO PARA TU PRODUCTOR
+// Mensaje de respuesta que contiene la tarea
+message ObtenerTareaResponse {
+  bool sistema_terminado = 1; // Indica si el servidor ha alcanzado el límite de 1M de resultados.
+  repeated int32 numeros = 2; // Los tres números aleatorios para la función matemática.
 }
 
-// ===== Servicio =====
-service MonteCarloService {
-    rpc Handshake (HandshakeRequest) returns (HandshakeReply);
+// ===================================================
+// Mensajes de Resultado (Cliente -> Servidor)
+// ===================================================
+
+// Mensaje de solicitud para reportar el resultado
+message EnviarResultadoRequest {
+  string cliente_id = 1;             // Identificador único del cliente.
+  int64 resultado_calculado = 2;     // El resultado de la función matemática del cliente.
+}
+
+// Mensaje de respuesta simple del servidor
+message EnviarResultadoResponse {
+  bool exito = 1;
+  string mensaje = 2;
+}
+
+
+// ===================================================
+// Servicio gRPC
+// ===================================================
+
+service TaskService {
+  // RPC para que el cliente solicite una nueva tarea.
+  rpc ObtenerTarea(ObtenerTareaRequest) returns (ObtenerTareaResponse);
+
+  // RPC para que el cliente envíe el resultado de una tarea.
+  rpc EnviarResultado(EnviarResultadoRequest) returns (EnviarResultadoResponse);
 }
