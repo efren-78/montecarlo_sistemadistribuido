@@ -1,0 +1,120 @@
+\documentclass[smallcondensed]{svjour3}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{ragged2e}
+\usepackage[hidelinks]{hyperref}
+\usepackage[spanish]{babel}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{lscape}
+\usepackage{adjustbox}
+
+\begin{document}
+
+\title{
+    \includegraphics[width=0.3\textwidth]{logo_buap_chiquito.png}\\[0.5cm]
+    \textbf{Benemérita Universidad Autónoma de Puebla}\\
+    Facultad de Ciencias de la Computación\\
+    Programación Distribuida y Aplicada\\
+    Profesor: Gustavo Emilio Mendoza Olguín\\
+    \vspace{1cm}
+}
+
+\author{
+    \textbf{Nombre del alumno:}\\
+    Efrén Arland Curi Hernández (202065429)\\
+}
+
+\date{\today}
+
+\maketitle
+\newpage
+
+\tableofcontents
+\newpage
+
+% ------ CONTENIDO ------
+
+\section{Introducción}
+El objetivo de este proyecto es implementar un sistema distribuido capaz de realizar una simulación de Montecarlo para la estimación del valor de $\pi$. El sistema utiliza el patrón de arquitectura Productor-Consumidor mediado por un Broker de mensajes (RabbitMQ).
+
+Una característica clave de esta implementación es el uso de \textit{Código Móvil}, donde el productor no solo envía datos, sino también la lógica de procesamiento (el modelo matemático) a los consumidores en tiempo de ejecución.
+
+La implementación de todos los componentes del sistema se ha realizado bajo el paradigma de Programación Orientada a Objetos (POO), encapsulando la lógica de conexión, procesamiento y visualización en clases para garantizar la mantenibilidad y escalabilidad del código.
+
+\section{Arquitectura del Sistema}
+\subsection{Roles y Responsabilidades}
+
+La siguiente tabla detalla el flujo de ejecución desde la lectura de escenarios hasta la visualización de resultados en tiempo real.
+
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.5} % Espaciado vertical en celdas
+    \begin{adjustbox}{width=\textwidth}
+    \begin{tabular}{|p{4cm}|p{3cm}|p{4cm}|p{4cm}|}
+        \hline
+        \rowcolor{gray!30} \textbf{Productor (Master)} & \textbf{Broker (RabbitMQ)} & \textbf{Consumidor (Worker)} & \textbf{Monitor (Dashboard)} \\ \hline
+        
+        1. Lee archivo de texto \texttt{escenarios.txt}. & 
+        \multirow{4}{=}{\centering \textit{(Intermediario)}\\ Almacena colas y enruta mensajes.} & 
+        1. \textbf{Descarga el código} del modelo dinámico. & 
+        1. Lee resultados de la cola. \\ \cline{1-1} \cline{3-4} 
+        
+        2. Envía código fuente a \texttt{cola\_modelo}. & & 
+        2. Recibe tarea de \texttt{cola\_escenarios}. & 
+        2. Suma totales (Aciertos / Intentos). \\ \cline{1-1} \cline{3-4} 
+        
+        3. Envía tareas JSON a \texttt{cola\_escenarios}. & & 
+        3. Ejecuta simulación localmente. & 
+        3. \textbf{Calcula PI} global. \\ \cline{1-1} \cline{3-4} 
+        
+         & & 
+        4. Envía datos a \texttt{cola\_resultados}. & 
+        4. \textbf{Actualiza Gráfica} en tiempo real. \\ \hline
+    \end{tabular}
+    \end{adjustbox}
+    \caption{Distribución de tareas en el sistema distribuido.}
+    \label{tab:roles}
+\end{table}
+
+
+\subsection{Diagrama de Arquitectura}
+El sistema se compone de cuatro elementos principales que interactúan de forma asíncrona. A continuación se presenta el diagrama de flujo de datos y la descripción de responsabilidades de cada componente.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{arquitectura.png} 
+    \caption{Diagrama de Arquitectura: Flujo de código móvil y tareas distribuidas.}
+    \label{fig:arquitectura}
+\end{figure}
+
+\vspace{0.5cm}
+
+\section{Justificación del Middleware}
+La integración de un Middleware Orientado a Mensajes (MOM), específicamente RabbitMQ, dentro de la arquitectura del sistema se justifica por las siguientes razones técnicas que optimizan el rendimiento y la robustez de la solución distribuida:
+
+\begin{itemize}
+    \item \textbf{Desacoplamiento del Sistema:} Elimina la dependencia directa entre el Productor y los Consumidores. El Productor no necesita conocer la ubicación, cantidad o estado de los nodos de procesamiento, lo que facilita el mantenimiento y la evolución independiente de los componentes.
+    \item \textbf{Escalabilidad Horizontal:} Permite agregar o eliminar nodos consumidores (workers) dinámicamente sin interrumpir el servicio ni modificar el código del productor. El middleware se encarga de distribuir la carga de trabajo de manera equitativa (Round-Robin) entre los recursos computacionales disponibles.
+    \item \textbf{Tolerancia a Fallos y Fiabilidad:} Mediante el mecanismo de confirmación de mensajes (Acknowledgments), el sistema garantiza la integridad de la simulación. Si un nodo falla durante el procesamiento de un escenario, el middleware detecta la ausencia de confirmación y reencola la tarea automáticamente para que sea procesada por otro nodo, evitando la pérdida de datos.
+    \item \textbf{Gestión de Picos de Carga:} Actúa como un búfer que absorbe picos de generación de tareas, permitiendo que los consumidores procesen los escenarios a su propio ritmo sin saturarse, previniendo el desbordamiento del sistema bajo cargas de trabajo intensivas.
+\end{itemize}
+
+\section{Referencias}
+
+\begin{itemize}
+    \item RabbitMQ. \textit{RabbitMQ Documentation & Tutorials}. Disponible en: \url{https://www.rabbitmq.com/documentation.html}
+    \item Pika Project. \textit{Pika Python Client Documentation}. Disponible en: \url{https://pika.readthedocs.io/}
+    \item Matplotlib. \textit{Matplotlib: Visualization with Python}. Disponible en: \url{https://matplotlib.org/}
+    \item Python Software Foundation. \textit{The Python Standard Library (json, threading)}. Disponible en: \url{https://docs.python.org/3/library/}
+\end{itemize}
+
+\end{document}
