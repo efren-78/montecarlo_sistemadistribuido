@@ -4,7 +4,7 @@ import time
 import sys
 import uuid
 
-RABBIT_HOST = 'localhost'
+RABBIT_HOST = '192.168.100.39'
 
 class WorkerMontecarlo:
     def __init__(self, host):

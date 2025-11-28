@@ -32,7 +32,7 @@ class DashboardVisual:
         """Método privado que corre en un hilo background"""
         
         # 1. Definimos las credenciales (usuario, contraseña)
-        credentials = pika.PlainCredentials('examen', 'examen')
+        credentials = pika.PlainCredentials('efren', 'efren')
 
         # 2. Creamos la conexión usándolas
         connection = pika.BlockingConnection(
