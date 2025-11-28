@@ -19,7 +19,15 @@ class ProductorMontecarlo:
     def conectar(self):
         """Establece conexión con el Broker"""
         try:
-            self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+            # Crear credenciales con el usuario que acabas de inventar
+            credentials = pika.PlainCredentials('efren', 'efren')
+
+            self.connection = pika.BlockingConnection(
+                pika.ConnectionParameters(
+                    host=self.host, 
+                    credentials=credentials 
+                )
+            )
             self.channel = self.connection.channel()
             # Declaramos las colas para asegurar que existen
             self.channel.queue_declare(queue=self.cola_tareas, durable=True)

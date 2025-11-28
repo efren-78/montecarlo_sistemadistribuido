@@ -30,7 +30,18 @@ class DashboardVisual:
 
     def _hilo_consumidor(self):
         """Método privado que corre en un hilo background"""
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+        
+        # 1. Definimos las credenciales (usuario, contraseña)
+        credentials = pika.PlainCredentials('examen', 'examen')
+
+        # 2. Creamos la conexión usándolas
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host=self.host,
+                credentials=credentials  # <--- AGREGAR ESTO
+            )
+        )
+        
         channel = connection.channel()
         channel.queue_declare(queue=self.cola_resultados, durable=True)
 

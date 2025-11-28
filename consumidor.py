@@ -21,7 +21,15 @@ class WorkerMontecarlo:
     def conectar(self):
         print(f" [*] Worker {self.worker_id} conectando a {self.host}...")
         try:
-            self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+            # Crear credenciales con el usuario que acabas de inventar
+            credentials = pika.PlainCredentials('efren', 'efren')
+
+            self.connection = pika.BlockingConnection(
+                pika.ConnectionParameters(
+                    host=self.host, 
+                    credentials=credentials 
+                )
+            )
             self.channel = self.connection.channel()
             self.channel.queue_declare(queue=self.cola_tareas, durable=True)
             self.channel.queue_declare(queue=self.cola_modelo, durable=True)
