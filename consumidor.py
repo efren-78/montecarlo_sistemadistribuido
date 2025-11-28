@@ -16,7 +16,8 @@ class WorkerMontecarlo:
         self.connection = None
         self.channel = None
         self.funcion_modelo = None # Aquí guardaremos el código dinámico
-        self.worker_id = f"Worker-{str(uuid.getnode())[-4:]}"
+        # Usamos uuid4() que genera un número aleatorio único cada vez que corre el script
+        self.worker_id = f"Worker-{str(uuid.uuid4())[:4]}"
 
     def conectar(self):
         print(f" [*] Worker {self.worker_id} conectando a {self.host}...")

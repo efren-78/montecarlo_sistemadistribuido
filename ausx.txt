@@ -1,0 +1,2 @@
+cd ""D:
+rabbitmqctl.bat list_queues
