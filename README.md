@@ -21,15 +21,35 @@ El sistema sigue el patrón Productor-Consumidor con monitoreo en tiempo real:
 ### Software
 * Python 3.x
 * RabbitMQ Server (instalado y corriendo en el equipo Host).
-Para instalar las librerias necesarias ejecutar el comando:
+* Para instalar las librerias necesarias ejecutar el comando:
 
-    python -m pip install - r requirements.txt
+    python -m pip install -r requirements.txt
 
 ### Configuración de RabbitMQ (Importante para red)
 Para permitir la conexión desde otros equipos (ej. Máquinas Virtuales), es necesario crear un usuario administrador, ya que el usuario `guest` está bloqueado remotamente.
 
 Ejecutar en la terminal del servidor RabbitMQ:
-```bash
-rabbitmqctl add_user examen examen
-rabbitmqctl set_user_tags examen administrator
-rabbitmqctl set_permissions -p / examen ".*" ".*" ".*"
+
+    rabbitmqctl add_user examen examen
+    rabbitmqctl set_user_tags examen administrator
+    rabbitmqctl set_permissions -p / examen ".*" ".*" ".*"
+
+### Configuración de IP
+Es indispensable editar la variable `RABBIT_HOST` en los archivos `productor.py`, `consumidor.py` y `dashboard.py`. Se debe colocar la dirección IP del equipo (Host) donde se está ejecutando RabbitMQ.
+
+Ejemplo:
+
+    RABBIT_HOST = '192.168.1.XX' # Sustituir por la IP real del servidor
+
+### Ejecucion 
+En donde se encuentre el servidor RabbitMQ debe ejecutarse el dashboard
+
+    python dashboard.py
+
+Debe ejecutarse loS 'n' terminales de consumidores los cuales estaran esperando los datos a recibir
+
+    python consumidor.py
+
+Por ultimo se debe ejecutar el productor que enviara el codigo y los escenarios
+
+    python productor.py
