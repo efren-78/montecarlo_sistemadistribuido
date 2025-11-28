@@ -1,41 +1,35 @@
-## 1. Arquitectura del sistema
-El sistema sigue el patrón Productor-Consumidor con un Monitor Gráfico:
+# Simulación Distribuida de Montecarlo 
+Este proyecto implementa un sistema distribuido para estimar el valor de **Pi** utilizando el método de Montecarlo. El sistema está diseñado bajo el paradigma de **Programación Orientada a Objetos (POO)** y utiliza **RabbitMQ** como middleware para la comunicación asíncrona entre nodos.
 
-    # RabbitMQ (Broker): Gestiona las colas de mensajes.
+## 1. Arquitectura del Sistema
 
-    # Productor (productor.py):
-        # Publica el código de la función matemática en cola_modelo (código móvil).
-        # Lee escenarios.txt y publica tareas en cola_escenarios.
+El sistema sigue el patrón Productor-Consumidor con monitoreo en tiempo real:
 
-    # Consumidor (consumidor.py):
-        #Descarga y compila el modelo dinámicamente desde cola_modelo.
-        #Procesa tareas y envía resultados a cola_resultados.
+* **RabbitMQ (Broker):** Middleware que gestiona las colas de mensajes y garantiza la entrega.
+* **Productor (Master):**
+    * Lee la carga de trabajo desde `escenarios.txt`.
+    * Publica el código fuente de la función matemática en `cola_modelo` (Código Móvil).
+    * Distribuye las tareas en `cola_escenarios`.
+* **Consumidor (Worker):**
+    * Descarga y compila dinámicamente el modelo desde `cola_modelo`.
+    * Procesa tareas de forma concurrente y envía resultados a `cola_resultados`.
+* **Dashboard (Monitor):**
+    * Visualiza en tiempo real la convergencia de Pi y la carga de trabajo por nodo usando `Matplotlib`.
 
-    # Dashboard (dashboard.py): Visualiza en tiempo real la convergencia de Pi y la carga de trabajo de los nodos.
-    
-## 2. Requisitos e Instalacion de dependencias necesarias
-Instalar RabbitMQ  ejecutarlo localmente
+## 2. Requisitos Previos
 
+### Software
+* Python 3.x
+* RabbitMQ Server (instalado y corriendo en el equipo Host).
 Para instalar las librerias necesarias ejecutar el comando:
 
     python -m pip install - r requirements.txt
 
-## 3. Guia de Ejecucion
-Paso 1: Inicializar el dashboard primero:
-    python dashboard.py
+### Configuración de RabbitMQ (Importante para red)
+Para permitir la conexión desde otros equipos (ej. Máquinas Virtuales), es necesario crear un usuario administrador, ya que el usuario `guest` está bloqueado remotamente.
 
-Paso 2: Iniciar los Consumidores (Workers) donde se puede abrir 'n' terminales para simular múltiples computadoras trabajando en paralelo.
-    python consumidor.py
-
-Paso 3: Iniciar el Productor (Trigger) donde cargara el modelo y las tareas.
-    python productor.py
-
-El productor enviará el código y los escenarios, y terminará su ejecución
-
-## Archivos
-productor.py	Master	Lee escenarios.txt y distribuye el código y las tareas.
-consumidor.py	Worker	Recibe el código dinámico y ejecuta la simulación Montecarlo.
-dashboard.py	Monitor GUI	Interfaz gráfica con Matplotlib para ver el avance en tiempo real.
-monitor.py	Monitor CLI	Script ligero para ver resultados numéricos en consola.
-escenarios.txt	Input	Archivo de texto que define la carga de trabajo (iteraciones).
-limpiar_colas.py	Util	Herramienta para purgar RabbitMQ y reiniciar el sistema.
+Ejecutar en la terminal del servidor RabbitMQ:
+```bash
+rabbitmqctl add_user examen examen
+rabbitmqctl set_user_tags examen administrator
+rabbitmqctl set_permissions -p / examen ".*" ".*" ".*"
